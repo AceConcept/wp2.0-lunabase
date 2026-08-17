@@ -1,0 +1,236 @@
+import '@fontsource/manrope/700.css'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  lockAppBehindShutter,
+  unlockAppBehindShutter,
+} from './loadscreenShutter'
+import './loadingScreen.css'
+
+type LoadingScreenProps = {
+  hold?: boolean
+  progress?: number
+  onComplete?: () => void
+}
+
+const LOADSCREEN_BG_URL = '/loadingscrn/ldingBG.png'
+const BG_LOAD_TIMEOUT_MS = 5000
+const PROGRESS_MS = 3000
+const PAUSE_MS = 120
+const SWEEP_MS_MIN = 400
+const SWEEP_MS_MAX = 650
+const SWEEP_MS_PER_PX = 0.35
+const HOLD_MS = 250
+const FADE_MS = 400
+
+function sweepMsForViewport() {
+  if (typeof window === 'undefined') return 500
+  return Math.round(
+    Math.min(SWEEP_MS_MAX, Math.max(SWEEP_MS_MIN, window.innerWidth * SWEEP_MS_PER_PX)),
+  )
+}
+
+function clampPercent(value: number) {
+  return Math.min(100, Math.max(0, Math.round(value)))
+}
+
+export function LoadingScreen({
+  hold = false,
+  progress: holdProgress = 56,
+  onComplete,
+}: LoadingScreenProps) {
+  const [bgReady, setBgReady] = useState(hold)
+  const [simProgress, setSimProgress] = useState(0)
+  const shutterRef = useRef<HTMLDivElement>(null)
+  const onCompleteRef = useRef(onComplete)
+  const finishedRef = useRef(false)
+  const sweepMs = useMemo(sweepMsForViewport, [])
+
+  onCompleteRef.current = onComplete
+
+  const progressEndMs = PROGRESS_MS + PAUSE_MS
+  const fadeDelayMs = progressEndMs + sweepMs + HOLD_MS
+  const totalMs = fadeDelayMs + FADE_MS
+
+  const progress = hold ? clampPercent(holdProgress) : simProgress
+
+  const shutterStyle = {
+    '--loadscreen-progress-end': `${progressEndMs}ms`,
+    '--loadscreen-sweep-ms': `${sweepMs}ms`,
+    '--loadscreen-fade-ms': `${FADE_MS}ms`,
+    '--loadscreen-fade-delay': `${fadeDelayMs}ms`,
+  } as CSSProperties
+
+  useLayoutEffect(() => {
+    if (hold) {
+      unlockAppBehindShutter()
+      return
+    }
+    lockAppBehindShutter()
+  }, [hold])
+
+  useEffect(() => {
+    if (hold) {
+      setBgReady(true)
+      return
+    }
+
+    let cancelled = false
+    const img = new Image()
+    const finish = () => {
+      if (!cancelled) setBgReady(true)
+    }
+
+    img.onload = finish
+    img.onerror = finish
+    img.src = LOADSCREEN_BG_URL
+    if (img.complete) finish()
+
+    const timeout = window.setTimeout(finish, BG_LOAD_TIMEOUT_MS)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+      img.onload = null
+      img.onerror = null
+    }
+  }, [hold])
+
+  useEffect(() => {
+    if (hold || !bgReady) return
+
+    const start = performance.now()
+    let frame = 0
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / PROGRESS_MS)
+      const eased = 1 - (1 - t) ** 2.2
+      setSimProgress(clampPercent(eased * 100))
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [hold, bgReady])
+
+  useEffect(() => {
+    if (hold || !bgReady) return
+
+    const finish = () => {
+      if (finishedRef.current) return
+      finishedRef.current = true
+      unlockAppBehindShutter()
+      onCompleteRef.current?.()
+    }
+
+    const el = shutterRef.current
+
+    const onAnimationStart = (event: AnimationEvent) => {
+      if (event.target !== el) return
+      if (event.animationName !== 'loadscreen-shutter-fade') return
+      unlockAppBehindShutter()
+      el?.classList.add('loadscreen--releasing')
+    }
+
+    const onAnimationEnd = (event: AnimationEvent) => {
+      if (event.target !== el) return
+      if (event.animationName !== 'loadscreen-shutter-fade') return
+      finish()
+    }
+
+    el?.addEventListener('animationstart', onAnimationStart)
+    el?.addEventListener('animationend', onAnimationEnd)
+
+    const revealTimer = window.setTimeout(() => {
+      unlockAppBehindShutter()
+      el?.classList.add('loadscreen--releasing')
+    }, fadeDelayMs)
+
+    const fallback = window.setTimeout(finish, totalMs + 80)
+
+    return () => {
+      el?.removeEventListener('animationstart', onAnimationStart)
+      el?.removeEventListener('animationend', onAnimationEnd)
+      window.clearTimeout(revealTimer)
+      window.clearTimeout(fallback)
+    }
+  }, [hold, bgReady, fadeDelayMs, totalMs])
+
+  const shutter = (
+    <div
+      ref={shutterRef}
+      className={`loadscreen${bgReady ? ' loadscreen--bg-ready' : ''}${!hold && bgReady ? ' loadscreen--sequence' : ''}`}
+      role="progressbar"
+      aria-valuenow={progress}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label="Loading Waypoint"
+      style={shutterStyle}
+    >
+      <div className="loadscreen__bg" aria-hidden="true" />
+
+      <div className="loadscreen__chrome">
+        <div className="loadscreen__progress" aria-hidden="true">
+          <div className="loadscreen__bar-track">
+            <div
+              className="loadscreen__bar"
+              style={{ height: `${progress}%` }}
+            />
+          </div>
+
+          <div
+            className="loadscreen__marker"
+            style={{ top: `${progress}%` }}
+          >
+            <div className="loadscreen__percent-stack">
+              <img
+                className="loadscreen__tracker"
+                src="/loadingscrn/tracker-rect.svg"
+                alt=""
+                width={11}
+                height={30}
+                draggable={false}
+              />
+              <p className="loadscreen__percent">[{progress}%:]</p>
+              <img
+                className="loadscreen__smollwrd"
+                src="/loadingscrn/smollwrd.png"
+                alt=""
+                width={176}
+                height={35}
+                draggable={false}
+              />
+            </div>
+            <div className="loadscreen__hline" />
+          </div>
+        </div>
+
+        <div className="loadscreen__brand">
+          <div className="loadscreen__icons" aria-hidden="true">
+            <img
+              className="loadscreen__icon-img"
+              src="/loadingscrn/website-icon.svg"
+              alt=""
+              width={36}
+              height={36}
+              draggable={false}
+            />
+            <img
+              className="loadscreen__icon-img"
+              src="/loadingscrn/waypoint-icon.svg"
+              alt=""
+              width={36}
+              height={36}
+              draggable={false}
+            />
+          </div>
+          <p className="loadscreen__status">// Loading Waypoint...</p>
+        </div>
+      </div>
+
+      {!hold ? <div className="loadscreen__sweep" aria-hidden="true" /> : null}
+    </div>
+  )
+
+  return createPortal(shutter, document.body)
+}

@@ -1,0 +1,66 @@
+jD8MDo + siblings — how they fill the screen (from CSSReferencefile.txt)
+================================================================================
+
+CONTEXT
+-------
+.jD8MDo lives under parent .n1I9fl, which is a horizontal flex row
+(display: flex, default flex-direction: row) with width: 100% of .VYqscx.
+.n1I9fl has height: 90rem and padding-top / padding-bottom: 11.25rem each,
+so the inner content band height is 67.5rem (matches .mUiHp_ height).
+
+
+SIBLINGS IN THE SAME ROW (selectors under .n1I9fl)
+--------------------------------------------------
+1. .jD8MDo
+   - width: 31.25rem (base / flex-basis before grow)
+   - flex-grow: 10, flex-shrink: 10
+   - height: 100%
+   - background: repeat-x, background-size: auto 100%
+
+2. .mUiHp_
+   - flex-grow: 0, flex-shrink: 0  → does NOT take extra space
+   - width: 120rem (fixed in the flex sense)
+   - height: 67.5rem
+
+3. .TXNnjm
+   - Same flex pattern as .jD8MDo but base width: 8.75rem
+   - flex-grow: 10, flex-shrink: 10, height: 100%, similar background
+
+
+HOW .jD8MDo FILLS HORIZONTAL SPACE WITH SIBLINGS
+------------------------------------------------
+- Main axis = row. Minimum content width is roughly:
+  31.25rem + 120rem + 8.75rem (plus any gaps from markup).
+
+- .mUiHp_ never grows (flex-grow: 0), so ALL leftover horizontal space in
+  the row is distributed to flex items that CAN grow.
+
+- .jD8MDo and .TXNnjm both have flex-grow: 10, so they SHARE leftover width
+  in a 1:1 ratio. Their declared widths are starting sizes; flex-grow is what
+  stretches them so the row still fills the full width of .n1I9fl.
+
+- flex-shrink: 10 lets those same columns shrink if the row is too narrow.
+
+
+VERTICAL FILL
+-------------
+- .jD8MDo uses height: 100% so it spans the flex container’s content box
+  height (inside the padding), same idea as .TXNnjm.
+
+- .mUiHp_ uses an explicit 67.5rem height aligned with that inner band.
+
+
+VISUAL “FULL BLEED” BACKGROUND ON .jD8MDo
+------------------------------------------
+- background-repeat: repeat-x and background-size: auto 100% tile the image
+  horizontally and scale it to the element’s height, so when .jD8MDo grows
+  wider, the strip still looks filled.
+
+
+ONE-LINE SUMMARY
+----------------
+.n1I9fl is full-width flex row; .mUiHp_ is a fixed 120rem stage; .jD8MDo and
+.TXNnjm use flex-grow: 10 to split extra horizontal space and height: 100% to
+fill the vertical band — together they fill the screen area that row occupies.
+
+Reference: Resize-scaling-notes/CSSReferencefile.txt (lines ~11–47)

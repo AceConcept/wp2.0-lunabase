@@ -1,0 +1,59 @@
+Integration guide — reusing this sidebar + scaling in another Cursor project
+================================================================================
+
+This is a copy/paste workflow for a second project you open in Cursor. You do not
+need an npm package or monorepo.
+
+
+1. What to copy
+---------------
+
+  • canvasScale.js (or rename it) — all viewport + scale math.
+  • The sidebar UI: the JSX for shell + rail + drawer + backdrop, and the CSS for
+    classes such as .sidebar-shell, .sidebar-drawer, .sidebar-rail, .artboard,
+    .viewport-fit, etc. In this repo that mostly lives in App.jsx + App.css; you
+    can copy the relevant blocks first and split files later.
+
+
+2. Mount it once in the host app
+--------------------------------
+
+  • Use one root element for the scaled layout (like the current artboard div):
+    fixed design width and height in px from canvasScale, then
+    transform: scale(...) and transformOrigin (e.g. top right) as you have now.
+  • On window resize and visualViewport resize, recompute scale the same way and
+    set React state (or equivalent).
+
+
+3. What you customize in the other project
+------------------------------------------
+
+  • Inside the scaled area: keep the sidebar and whatever panel content you need.
+    Optionally pass children for “main site” vs “drawer content” once you want a
+    cleaner split.
+  • Outside that tree (optional): the rest of the host page can be normal.
+    Avoid applying a second full-page scale on top of the same subtree.
+
+
+4. Mental model (one line)
+--------------------------
+
+  One self-contained “mini page” at a fixed design size (e.g. 2560×1440) that
+  shrinks and grows with a single scale factor; the sidebar lives inside that
+  mini page.
+
+
+5. If something looks wrong after paste
+---------------------------------------
+
+  • Global CSS in the host (html, body, button, *) may clash. If needed, wrap
+    your block in a class (e.g. .luna-root) and scope copied rules under it.
+  • rem follows the host root font-size; this design assumes ~16px per rem unless
+    you set font-size on your wrapper.
+
+
+Summary
+-------
+
+Copy the scale helper + sidebar markup/styles → one scaled wrapper → same resize
+listeners as here. No extra tooling required for a personal second project.

@@ -1,0 +1,95 @@
+================================================================================
+RESIZE, THROTTLING, AND CANVAS SCALE — NOTES FOR LATER
+================================================================================
+Project: Slider (StateManager). Related code: src/App.jsx, src/canvasScale.js
+
+Last topic: applying “throttle / trailing resize” ideas vs the minified reference
+bundles (reference-js-01 … reference-js-05.txt).
+
+--------------------------------------------------------------------------------
+1. WHAT THE REFERENCE BUNDLE WAS DOING (reference-js-05)
+--------------------------------------------------------------------------------
+Pattern (minified, ~line 6 in reference-js-05.txt):
+
+  r = function () {
+    n();
+    t = setTimeout(function () { return n(); }, 160);
+  };
+  r();
+  window.addEventListener("resize", r);
+
+- n() = callback tied to global CSS injection (emotion/styled-style), not your
+  canvas math.
+- 160 = 160 milliseconds delay for a second pass — NOT 160rem design width.
+- Intent-ish: run work immediately on resize, then run again after layout has
+  a moment to settle (trailing pass).
+
+This is closer to "immediate + delayed second run" than a strict debounce.
+
+--------------------------------------------------------------------------------
+2. VOCABULARY (QUICK)
+--------------------------------------------------------------------------------
+Throttle: During many resize events, runexpensive work at most every X ms (or
+  once per frame) — fewer updates, smoother UI.
+
+Trailing: Do the important work at the END of a burst (or after a short delay)
+  so sizes match post-layout, not mid-resize glitch.
+
+Debounce: Wait until events pause for Y ms, then run once — different from the
+  reference snippet above.
+
+--------------------------------------------------------------------------------
+3. YOUR APP TODAY
+--------------------------------------------------------------------------------
+App.jsx useEffect:
+- update() reads getViewportSize() from canvasScale.js (prefers visualViewport).
+- setScale(getCanvasContainScale(width, height)).
+- Listeners: window "resize", and visualViewport "resize" if present.
+
+canvasScale.js:
+- Logical canvas 2560×1440 from 160×90 rem @ 16px root.
+- getCanvasContainScale = min(viewportW/CANVAS_W, viewportH/CANVAS_H).
+
+This is already the right class of “fixed artboard, contain scale” logic.
+
+--------------------------------------------------------------------------------
+4. WHEN TO CHANGE YOUR LISTENERS
+--------------------------------------------------------------------------------
+You do NOT need to copy reference-js-05 unless you have a real problem.
+
+Consider rAF throttling if:
+- Resize feels janky (too many setState calls while dragging the window).
+
+Consider a short trailing pass (setTimeout 0–150ms or double rAF) if:
+- Scale is wrong for one frame after resize, or specific devices glitch.
+
+Consider visualViewport "scroll" if:
+- Mobile browser chrome (URL bar) hides/shows and resize alone misses updates.
+
+Optional improvement pattern: schedule update via requestAnimationFrame and
+cancel/replace the pending rAF id so at most one run per frame.
+
+--------------------------------------------------------------------------------
+5. REFERENCE-JS FILES — WHAT THEY WERE GOOD FOR
+--------------------------------------------------------------------------------
+reference-js-01 … 05: Mostly webpack/vendor (React, polyfills, Framer Motion,
+Sentry, styled pipeline, bridge code). Searches did not surface a clean
+copy-pastable “2560×1440 min scale” implementation. Resize/visualViewport
+patterns are still useful as behavioral hints, not as a drop-in formula.
+
+For matching a live site exactly: export the small source chunk that computes
+scale (search Sources for innerWidth, visualViewport, 2560, transform, etc.).
+
+--------------------------------------------------------------------------------
+6. FILES TO OPEN WHEN REVISITING
+--------------------------------------------------------------------------------
+.slider project:
+  src/App.jsx          — listeners + setScale
+  src/canvasScale.js   — CANVAS_* , getViewportSize , getCanvasContainScale
+
+Reference dumps (if still present):
+  reference-js-05.txt  — resize + setTimeout(..., 160) context
+
+================================================================================
+END OF NOTES
+================================================================================

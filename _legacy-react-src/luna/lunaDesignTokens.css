@@ -1,0 +1,32 @@
+/*
+  Luna layout design tokens (1rem = 16px at default root).
+  Keep DESIGN_REM_H / OTF_FOOTER_DESIGN_REM in sync with canvasScale.js.
+*/
+:root {
+  font-size: 100%;
+  color-scheme: light;
+  --global-color-1: #f9fd5e;
+  --sidebar-gold: #d4af37;
+  --sidebar-surface: #e0e0e0;
+  --sidebar-surface-dots: rgba(0, 0, 0, 0.06);
+  --sidebar-text: #141414;
+  --sidebar-text-muted: #3a3a3a;
+  --sidebar-active: #c5c5c5;
+  --preview-list-bg: #e4e3e3;
+  --sidebar-start-bg: #1c1c1c;
+  --sidebar-shell-bg: #282828;
+  --sidebar-expand-duration: 0.35s;
+  --sidebar-expand-easing: ease-out;
+  --sidebar-start-btn-height: 4.5rem;
+  --canvas-w: 160rem;
+  --canvas-h: 90rem;
+  --page-row-otf-footer-h: 48rem;
+  --stage-w: 120rem;
+  --sidebar-rail-w: 6.125rem; /* 98px @ 16px/rem */
+  --sidebar-expanded: 49.3125rem; /* 789px @ 16px/rem */
+  --sidebar-font-mult: 1.5;
+  --sidebar-rail-font-mult: 1.65;
+  --intro-hero-radius: 0;
+  --intro-hero-width: 39rem; /* 624px @ 16px/rem */
+  --intro-hero-height: 21.9375rem; /* 351px — 16:9 at full width; hero uses aspect-ratio */
+}

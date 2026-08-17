@@ -1,0 +1,111 @@
+OTF shell: footer band vs main row columns — handoff for future chats
+======================================================================
+
+Purpose
+-------
+Explain how the “footer” fits into the Endfield Over-The-Frontier (OTF) layout
+mentally model, how it lines up with the horizontal columns above it, and what
+is actually implemented in this repo vs still documented only in JS comments.
+
+
+1) Vocabulary (design space = rem on :root, typically 1rem ≈ 16px)
+-------------------------------------------------------------------
+• Main canvas row height: `--canvas-h` = 90rem → see `LunaSidebar.css` :root and
+  `DESIGN_REM_H` / `CANVAS_H` in `canvasScale.js`.
+
+• Intended OTF footer band height (below the main canvas row): 48rem design
+  → `OTF_FOOTER_DESIGN_REM` and `getOtfFooterDesignHeightPx()` in
+  `canvasScale.js`. The JS comment there says this should stay in sync with a
+  CSS custom property `--page-row-otf-footer-h` in `LunaSidebar.css` :root.
+
+• Stage width (center column): `--stage-w` = 120rem — the fixed “main content”
+  column in the horizontal flex row.
+
+• Sidebar shell (`.sidebar-shell.UxzaHe`): sits on the right; collapsed vs
+  expanded widths are `--sidebar-collapsed` / `--sidebar-expanded` (and
+  `getSidebarShellDesignWidthPx()` in `canvasScale.js`).
+
+
+2) Horizontal layout: the “other columns” (main canvas row)
+----------------------------------------------------------
+The reference shell (see `Resize-scaling-notes/CSSReferencefile.txt` and
+`jD8MDo-flex-layout-note.txt`) uses a single full-width flex ROW `.n1I9fl`
+inside page frame `.VYqscx`:
+
+  [ left grow column ]  [ fixed stage ]  [ right grow column ]
+
+Roughly:
+• Left (e.g. `.jD8MDo`) and right (e.g. `.TXNnjm`): flexible strips that share
+  extra horizontal space (flex-grow), decorative backgrounds, height 100% of
+  the row’s content box.
+
+• Center `.mUiHp_`: fixed width `--stage-w` (120rem in this project’s tokens).
+  This is the “stage” — the primary content column. It does not participate in
+  horizontal flex-grow the same way; it holds the main UI.
+
+• The Luna sidebar (`.sidebar-shell.UxzaHe` / `.UxzaHe` in the reference) is
+  anchored to the right of the stage area (absolute positioning in our CSS). In a
+  full OTF tree it visually belongs to the right side of the canvas row: drawer
+  + rail stack beside/over the stage, not inside the 120rem stage width.
+
+So “other column” relative to the footer means: everything in that main row
+(left flex + stage + right flex + right-docked sidebar) sits ABOVE the footer
+band. The footer is not one of those three flex children; it is a separate
+horizontal band underneath the whole row (when the full shell is assembled).
+
+
+3) Vertical layout: where the footer sits
+------------------------------------------
+Conceptual full page (when integrated like the live OTF page):
+
+  ┌─────────────────────────────────────────────┐
+  │  .VYqscx / .n1I9fl — main canvas row (90rem) │
+  │  [ flex | stage 120rem | flex | sidebar ]   │
+  └─────────────────────────────────────────────┘
+  ┌─────────────────────────────────────────────┐
+  │  OTF footer band (48rem design height)       │  ← full width under the row above
+  └─────────────────────────────────────────────┘
+
+Relationship to columns:
+• The footer row spans the same overall width as the viewport (or scaled
+  artboard), not “only under the 120rem stage”. It aligns under the entire main
+  row, so it sits under the left/right decorative columns and the stage together.
+
+• `getOtfFooterDesignHeightPx()` exists so host code can reserve space, measure
+  offsets, or scale a layout that includes BOTH `CANVAS_H` and the footer (e.g.
+  total design height 90rem + 48rem = 138rem if stacked with no gap — exact
+  stacking/gaps depend on the final JSX/CSS you add).
+
+
+4) What this repo actually renders today (important)
+-----------------------------------------------------
+• `App.jsx` mounts only `<LunaSidebar />` inside `.app-shell`. The component
+  returns the sidebar shell + drawer + rail (`LunaSidebar.jsx`); there is no
+  `.viewport-fit` / `.artboard` wrapper in App and no footer slot in JSX.
+
+• `LunaSidebar.css` still contains rules for `.viewport-fit`, `.page-frame.VYqscx`,
+  `.page-row.n1I9fl`, `.mUiHp_`, etc., for parity when you compose the full OTF
+  shell elsewhere or restore the scaled artboard wrapper.
+
+• The CSS custom property `--page-row-otf-footer-h` mentioned in `canvasScale.js`
+  is NOT currently defined in `LunaSidebar.css` — the footer is anticipated in JS
+  exports but not wired in stylesheet yet. If you add a footer row, define that
+  variable (48rem) in :root and use it for the footer band height to match the
+  helpers.
+
+
+5) Files to read or update next
+--------------------------------
+• `src/luna-sidebar/canvasScale.js` — `OTF_FOOTER_DESIGN_REM`, sidebar width helpers.
+• `src/luna-sidebar/LunaSidebar.css` — `--canvas-h`, `--stage-w`, shell/sidebar rules;
+  add `--page-row-otf-footer-h` when implementing the footer row.
+• `Resize-scaling-notes/jD8MDo-flex-layout-note.txt` — flex row + stage vs grow columns.
+• `Resize-scaling-notes/CSSReferencefile.txt` — minified reference `.VYqscx` / `.n1I9fl`.
+
+
+6) One-line summary
+-------------------
+The footer is a full-width band below the 90rem main canvas row; the row’s
+columns (flex sides + fixed 120rem stage + right-docked sidebar) all live above
+it. This repo exports the footer’s design height in JS but does not yet render
+the footer or define the matching CSS variable.

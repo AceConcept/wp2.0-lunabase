@@ -1,0 +1,134 @@
+PORT NOTES — custom preview scrollbar + CSS transform scale (Slider / LunaSidebar)
+==================================================================================
+Copy these ideas into the other app if the sidebar lives inside a scaled parent
+(e.g. transform: scale(...) on an artboard).
+
+PROBLEM (plain language)
+--------------------------
+getBoundingClientRect() returns sizes/positions AFTER the browser applies
+transform: scale. Your scrollbar uses inline "top" and a CSS variable height
+in the gutter's LOCAL layout pixels. Those two spaces don't match when scale
+is not 1, so the track/thumb drift or jump when the window resizes.
+
+FIX (idea)
+----------
+Multiply rect-derived distances by (1 / scale) before using them for layout
+inline styles. Pointer movement for dragging the thumb is in SCREEN pixels;
+multiply delta-Y by (1 / scale) before applying scroll math that was derived
+from layout-pixel track height.
+
+PREREQUISITE IN THIS REPO
+-------------------------
+File: LunaCanvasScaleContext.jsx
+- React context default value = 1 (means "no extra scale" / not wrapped).
+- useLunaCanvasScale() reads the current scale.
+
+The scaled wrapper (LunaScaledArtboard) wraps children with:
+  <LunaCanvasScaleContext.Provider value={scale}>
+where scale = getCanvasContainScale(viewportW, viewportH) (see canvasScale.js).
+
+In the other app: either copy that tiny context + provider, OR pass scale as a
+prop and replace useLunaCanvasScale() with that prop (default 1).
+
+-------------------------------------------------------------------------------
+
+1) IMPORT (LunaSidebar.jsx top)
+--------------------------------
+import { useLunaCanvasScale } from "./LunaCanvasScaleContext.jsx";
+
+(Adjust path if your folder layout differs.)
+
+-------------------------------------------------------------------------------
+
+2) useSyncedPreviewScrollbar — add at start of hook
+---------------------------------------------------
+  const layoutScale = useLunaCanvasScale();
+  const toLayoutPx = layoutScale > 0 ? 1 / layoutScale : 1;
+
+-------------------------------------------------------------------------------
+
+3) useSyncedPreviewScrollbar — after getPreviewScrollbarTrackGeometry(...)
+---------------------------------------------------------------------------
+Change destructuring to let, then convert viewport -> layout:
+
+    let { trackTop, trackHeight: trackHeightBase } =
+      getPreviewScrollbarTrackGeometry(list, gutter, strip);
+    trackTop *= toLayoutPx;
+    trackHeightBase *= toLayoutPx;
+
+Add toLayoutPx to the useCallback dependency array for update:
+
+  }, [previewListRef, gutterRef, previewStripRef, toLayoutPx]);
+
+-------------------------------------------------------------------------------
+
+4) LunaSidebar (or equivalent) — scrollbar remeasure when scale changes
+-------------------------------------------------------------------------
+  const layoutScale = useLunaCanvasScale();
+  const scrollbarSyncKey =
+    `${expanded}-${items.length}-${activePreviewId}-${layoutScale}`;
+
+(Pass scrollbarSyncKey into useSyncedPreviewScrollbar as you already do with
+syncKey so layout runs again when scale changes.)
+
+-------------------------------------------------------------------------------
+
+5) handleRuleThumbPointerDown — track height + drag delta
+----------------------------------------------------------
+After getPreviewScrollbarTrackGeometry for track height only:
+
+    let { trackHeight: trackHeightBase } = getPreviewScrollbarTrackGeometry(
+      list,
+      gutter,
+      strip,
+    );
+    const inv = layoutScale > 0 ? 1 / layoutScale : 1;
+    trackHeightBase *= inv;
+
+In the pointermove handler, use:
+
+    const dy = (ev.clientY - startY) * inv;
+
+Set useCallback deps to include layoutScale:
+
+  }, [layoutScale]);
+
+handleRuleTrackPointerDown (click track to jump): left unchanged — ratio of
+click Y to track rect height is the same in screen space.
+
+-------------------------------------------------------------------------------
+
+6) LunaCanvasScaleContext.jsx (full file in this repo)
+------------------------------------------------------
+import { createContext, useContext } from "react";
+
+export const LunaCanvasScaleContext = createContext(1);
+
+export function useLunaCanvasScale() {
+  return useContext(LunaCanvasScaleContext);
+}
+
+-------------------------------------------------------------------------------
+
+7) Provider (concept)
+----------------------
+Where you compute artboard scale S, wrap the subtree that contains the sidebar:
+
+  <LunaCanvasScaleContext.Provider value={S}>
+    ... sidebar ...
+  </LunaCanvasScaleContext.Provider>
+
+If you omit the provider, useContext returns the default 1 — scrollbar math
+matches the old behavior (no transform scale).
+
+-------------------------------------------------------------------------------
+
+CSS
+---
+No CSS changes were required for the scale fix. The custom scrollbar still uses
+classes like .sidebar-drawer-rule-gutter, .sidebar-drawer-rule-scrollbar,
+.sidebar-drawer-rule-scrollbar__thumb, and :root --drawer-scrollbar-* vars
+in LunaSidebar.css.
+
+==================================================================================
+End of port notes.

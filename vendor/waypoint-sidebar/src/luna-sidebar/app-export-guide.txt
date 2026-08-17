@@ -1,0 +1,6 @@
+App wiring
+App.jsx — <main className="app-shell"><LunaSidebar items={DEFAULT_SLIDER_ITEMS} /></main>
+App.css — shell only (html / body / #root / .app-shell)
+src/canvasScale.js — removed (only used from luna-sidebar now)
+npm run build completes successfully.
+To reuse elsewhere: copy the whole luna-sidebar folder, import { LunaSidebar } from that folder, and pass your own items (see README.md in that folder).
